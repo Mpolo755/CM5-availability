@@ -1,0 +1,43 @@
+name: Surveiller CM5
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # toutes les 5 minutes (GitHub peut retarder de 5 à 15 min)
+  workflow_dispatch:
+    inputs:
+      test_notification:
+        description: "Envoyer seulement une notification de test"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # pour enregistrer etat.json
+
+concurrency:
+  group: surveiller-cm5
+  cancel-in-progress: false
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vérifier le stock
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          DIGIKEY_CLIENT_ID: ${{ secrets.DIGIKEY_CLIENT_ID }}
+          DIGIKEY_CLIENT_SECRET: ${{ secrets.DIGIKEY_CLIENT_SECRET }}
+          TEST_NOTIFICATION: ${{ inputs.test_notification && '1' || '0' }}
+        run: python3 surveiller_cm5.py
+
+      - name: Enregistrer l'état
+        run: |
+          if [ -n "$(git status --porcelain etat.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+            git add etat.json
+            git commit -m "Mise à jour de l'état du stock"
+            git push
+          fi
