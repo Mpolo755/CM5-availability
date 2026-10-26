@@ -88,7 +88,14 @@ def tester_digikey(client_id, client_secret):
             "X-DIGIKEY-Locale-Currency": "CAD",
         },
     ))
-    return int(rep["Product"]["QuantityAvailable"])
+    produit = rep.get("Product") or {}
+    journal(f"DigiKey : produit trouvé {produit.get('ManufacturerProductNumber', '?')} - "
+            f"{(produit.get('Description') or {}).get('ProductDescription', '?')}")
+    # L'API omet QuantityAvailable quand il vaut 0 ; repli sur la somme par type d'emballage.
+    if "QuantityAvailable" in produit:
+        return int(produit["QuantityAvailable"])
+    variantes = produit.get("ProductVariations") or []
+    return sum(int(v.get("QuantityAvailableforPackageType") or 0) for v in variantes)
 
 
 def main():
